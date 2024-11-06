@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Futsal Tactical Board</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #202020;
+    }
+
+    .tactical-board {
+      width: 90%;
+      max-width: 1200px;
+      height: auto;
+      aspect-ratio: 2 / 1;
+      background-color: #202020;
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    #courtCanvas {
+      width: 100%;
+      height: 100%;
+      background-color: #000000;
+      border: 2px solid #000000;
+    }
+
+    /* Player circle styling */
+    .player {
+      width: 40px;
+      height: 40px;
+      position: absolute;
+      cursor: grab;
+      z-index: 10;
+      border-radius: 50%;
+    }
+
+    .team1 {
+      background-color: #ff5722;
+    }
+
+    .team2 {
+      background-color: #4caf50;
+    }
+
+    .team3 {
+      background-color: #fff;
+    }
+
+    /* For debugging, you can add this to visualize where the circle is. */
+    .player.dragging {
+      background-color: yellow;
+    }
+  </style>
+</head>
+<body>
+  <div class="tactical-board">
+    <canvas id="courtCanvas"></canvas>
+
+    <!-- Players for Team 1 -->
+    <div class="player team1" id="player1" style="left: 78px; top: 177px;"></div> 
+    <div class="player team1" id="player2" style="left: 170px; top: 177px;"></div> 
+    <div class="player team1" id="player3" style="left: 305px; top: 60px;"></div>
+    <div class="player team1" id="player4" style="left: 305px; top: 290px;"></div>
+    <div class="player team1" id="player5" style="left: 415px; top: 177px;"></div>
+  
+    <!-- Players for Team 2 -->
+    <div class="player team2" id="player6" style="right: 75px; top: 177px;"></div>
+    <div class="player team2" id="player7" style="right: 130px; top: 177px;"></div>
+    <div class="player team2" id="player8" style="right: 200px; top: 60px;"></div>
+    <div class="player team2" id="player9" style="right: 200px; top: 290px;"></div>
+    <div class="player team2" id="player10" style="right: 200px; top: 177px;"></div>
+
+
+    <!-- Ball -->
+    <div class="player team3" id="ball1" style="left: 372px; top: 177px;"></div>
+  </div>
+
+  <script>
+    // Initialize the canvas
+    const canvas = document.getElementById('courtCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Resize the canvas to fit the available space
+    canvas.width = window.innerWidth * 0.9;
+    canvas.height = window.innerHeight * 0.7;
+
+    // Draw the futsal court
+    function drawCourt() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw the outer border of the court
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 5;
+      ctx.strokeRect(50, 50, canvas.width - 100, canvas.height - 100);
+
+      // Draw the center line
+      ctx.beginPath();
+      ctx.moveTo(canvas.width / 2, 50);
+      ctx.lineTo(canvas.width / 2, canvas.height - 50);
+      ctx.stroke();
+
+      // Draw the center circle
+      ctx.beginPath();
+      ctx.arc(canvas.width / 2, canvas.height / 2, 50, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Draw the goals (for simplicity, using rectangles here)
+      ctx.strokeRect(50, canvas.height / 2 - 50, 30, 100); // Left goal
+      ctx.strokeRect(canvas.width - 80, canvas.height / 2 - 50, 30, 100); // Right goal
+
+      // Draw two vertical lines (one in each half of the court)
+      
+      // First vertical line (on the left side, from halfway to the left goal)
+      const firstLineX = canvas.width / 2 - 150;  // A bit left of the center
+      ctx.beginPath();
+      ctx.moveTo(firstLineX, 50);  // Start from the top
+      ctx.lineTo(firstLineX, canvas.height - 50);  // End at the bottom
+      ctx.strokeStyle = "#fff";  // White color for the line
+      ctx.lineWidth = 5;
+      ctx.stroke();
+
+      // Second vertical line (on the right side, from halfway to the right goal)
+      const secondLineX = canvas.width / 2 + 150;  // A bit right of the center
+      ctx.beginPath();
+      ctx.moveTo(secondLineX, 50);  // Start from the top
+      ctx.lineTo(secondLineX, canvas.height - 50);  // End at the bottom
+      ctx.strokeStyle = "#fff";  // White color for the line
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    }
+
+    // Call drawCourt function
+    drawCourt();
+
+    // Player drag logic
+    let draggedPlayer = null;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    // Select all players
+    const players = document.querySelectorAll('.player');
+
+    // Add event listeners for mouse/touch events
+    players.forEach(player => {
+      player.addEventListener('mousedown', dragStart);
+      player.addEventListener('touchstart', dragStart);
+    });
+
+    // Track the starting position of the drag
+    function dragStart(e) {
+      e.preventDefault();  // Prevent default behavior (e.g., text selection)
+
+      // Get the mouse/touch position relative to the viewport
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      draggedPlayer = e.target;  // Set the current player as the dragged player
+      draggedPlayer.classList.add('dragging');  // Add dragging class for visual feedback
+
+      // Calculate the offset between the mouse position and the top-left corner of the player
+      offsetX = clientX - draggedPlayer.getBoundingClientRect().left;
+      offsetY = clientY - draggedPlayer.getBoundingClientRect().top;
+
+      draggedPlayer.style.zIndex = 1000;  // Bring the player to the front
+
+      // Attach the mousemove or touchmove event to move the player
+      document.addEventListener('mousemove', dragMove);
+      document.addEventListener('touchmove', dragMove);
+
+      // On mouseup, stop dragging
+      document.addEventListener('mouseup', dragEnd);
+      document.addEventListener('touchend', dragEnd);
+    }
+
+    // Move the player based on mouse/touch position
+    function dragMove(e) {
+      e.preventDefault();  // Prevent default behavior (e.g., text selection)
+
+      if (draggedPlayer) {
+        // Get the current mouse/touch position
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        // Position the player so that the mouse is above it
+        draggedPlayer.style.left = `${clientX - offsetX}px`;
+        draggedPlayer.style.top = `${clientY - offsetY}px`;
+      }
+    }
+
+    // End the drag and place the player in its new position
+    function dragEnd(e) {
+      if (draggedPlayer) {
+        // On release, the player stays where it was dropped
+        draggedPlayer.classList.remove('dragging');  // Remove dragging class
+        draggedPlayer.style.zIndex = 1;  // Reset the z-index
+        draggedPlayer = null;  // Clear the dragged player reference
+
+        // Remove the mousemove or touchmove event listener once drag ends
+        document.removeEventListener('mousemove', dragMove);
+        document.removeEventListener('touchmove', dragMove);
+
+        // Remove the mouseup or touchend event listener
+        document.removeEventListener('mouseup', dragEnd);
+        document.removeEventListener('touchend', dragEnd);
+      }
+    }
+  </script>
+</body>
+</html>
